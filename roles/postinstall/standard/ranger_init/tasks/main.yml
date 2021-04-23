@@ -1,0 +1,49 @@
+---
+
+- fail:
+    msg: |
+      Requires...
+      task_args.cluster_name or
+      (task_args.admin_url
+      task_args.admin_username
+      task_args.admin_password)
+      task_args.policies
+
+      Optional...
+      task_args.auto_keyadmin
+  when: >
+    ((task_args.cluster_name is not defined
+      and postinstall_default_cluster is not defined)
+     and (task_args.admin_url is not defined
+      or task_args.admin_username is not defined
+      or task_args.admin_password is not defined))
+    or task_args.policies is not defined
+
+- name: Locate Ranger admin
+  include_role:
+    name: postinstall/credentials/common
+    tasks_from: cluster_find_ranger
+  vars:
+    use_ranger_keyadmin: "{{ task_args.auto_keyadmin | default(False) }}"
+    cluster: >-
+      {{
+      definition.clusters
+      | find_clusters(name=task_args.cluster_name | default(postinstall_default_cluster))
+      | first
+      }}
+  when: task_args.cluster_name is defined or postinstall_default_cluster is defined
+
+- name: Grant the required permissions
+  uri:
+    url: "{{ task_args.admin_url | default(ranger_url) }}/service/public/v2/api/policy/apply"
+    user: "{{ task_args.admin_username | default(ranger_admin_username) }}"
+    password: "{{ task_args.admin_password | default(ranger_admin_password) }}"
+    force_basic_auth: yes
+    method: POST
+    body: "{{ lookup('template', 'policy.j2') | from_yaml | to_json }}"
+    body_format: json
+  loop: "{{ task_args.policies }}"
+  loop_control:
+    loop_var: policy
+    label: "{{ policy.name }} [{{ policy.plugin }}]"
+  run_once: true

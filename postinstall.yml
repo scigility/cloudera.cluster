@@ -1,0 +1,93 @@
+---
+
+- name: Ensure the Cloudera Manager version is at least 7.x
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - assert:
+        that: "{{ cloudera_manager_version is version('7.1.0','>=') }}"
+        success_msg: "The version of Cloudera Manager installed is supported by postinstall"
+        fail_msg: "The version of Cloudera Manager installed is not supported by postinstall"
+
+- name: Ensure the provisioning user exists
+  hosts: cluster
+  any_errors_fatal: true
+  gather_facts: no
+  roles:
+    - postinstall/common
+  tasks:
+    - name: Check the user exists
+      user:
+        name: "{{ postinstall_local_user }}"
+      check_mode: yes
+      register: user_check
+    - assert:
+        that: "{{ not user_check.changed }}"
+        success_msg: >
+          The provisioning user {{ postinstall_local_user }} exists.
+        fail_msg: >
+          The provisioning user {{ postinstall_local_user }} does not
+          exist and is set using `postinstall_local_user`.
+
+
+- name: Group hosts using host template information
+  hosts: all
+  gather_facts: no
+  tasks:
+    - import_tasks: tasks/group_hosts.yml
+
+- name: Postinstall tasks
+  hosts: cluster
+  any_errors_fatal: true
+  gather_facts: no
+  vars:
+    postinstall_args: {}
+  roles:
+    - cloudera_manager/admin_password/check
+    - postinstall/credentials/up
+    - { role: postinstall/standard/configure_service,
+        task_args: {
+          cluster_name: "{{ postinstall_args.hdfs_umask.cluster_name | default(postinstall_default_cluster) }}",
+          service: "hdfs",
+          configs: {
+            dfs_umaskmode: "{{ postinstall_args.hdfs_umask.umask }}"
+          },
+          should_restart: true,
+          should_deploy_client_configs: true
+        },
+        when: "'hdfs_umask' in postinstall_args" }
+    - { role: postinstall/standard/cdsw_init,
+        task_args: "{{ postinstall_args.cdsw_init }}",
+        when: "'cdsw_init' in postinstall_args" }
+    - { role: postinstall/standard/hbase_init,
+        task_args: "{{ postinstall_args.hbase_init }}",
+        when: "'hbase_init' in postinstall_args" }
+    - { role: postinstall/standard/key_init,
+        task_args: "{{ postinstall_args.key_init }}",
+        when: "'key_init' in postinstall_args" }
+    - { role: postinstall/standard/hdfs_init,
+        task_args: "{{ postinstall_args.hdfs_init }}",
+        when: "'hdfs_init' in postinstall_args" }
+    - { role: postinstall/standard/hive_init,
+        task_args: "{{ postinstall_args.hive_init }}",
+        when: "'hive_init' in postinstall_args" }
+    - { role: postinstall/standard/hue_init,
+        task_args: "{{ postinstall_args.hue_init }}",
+        when: "'hue_init' in postinstall_args" }
+    - { role: postinstall/standard/impala_init,
+        task_args: "{{ postinstall_args.impala_init }}",
+        when: "'impala_init' in postinstall_args" }
+    - { role: postinstall/standard/kafka_init,
+        task_args: "{{ postinstall_args.kafka_init }}",
+        when: "'kafka_init' in postinstall_args" }
+    - { role: postinstall/standard/ranger_init,
+        task_args: "{{ postinstall_args.ranger_init }}",
+        when: "'ranger_init' in postinstall_args" }
+    - { role: postinstall/standard/ranger_init,
+        task_args: "{{ postinstall_args.ranger_kms_init | default({}) | combine({'auto_keyadmin': 'true'}) }}",
+        when: "'ranger_kms_init' in postinstall_args" }
+    - { role: postinstall/standard/solr_init,
+        task_args: "{{ postinstall_args.solr_init }}",
+        when: "'solr_init' in postinstall_args" }
+    - postinstall/credentials/down

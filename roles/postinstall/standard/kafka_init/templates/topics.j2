@@ -1,0 +1,52 @@
+set -x
+
+JAAS_TMP="$(mktemp)"
+
+cat <<EOF > "$JAAS_TMP"
+KafkaClient {
+com.sun.security.auth.module.Krb5LoginModule required
+useTicketCache=true
+renewTicket=true
+serviceName="kafka";
+};
+EOF
+
+export KAFKA_OPTS="-Djava.security.auth.login.config=$JAAS_TMP"
+
+PROTOCOL_TMP="$(mktemp)"
+
+echo "security.protocol={{ task_args.security_protocol }}" > "$PROTOCOL_TMP"
+
+{% if task_args.truststore is defined %}
+echo "ssl.truststore.location={{ task_args.truststore }}" >> "$PROTOCOL_TMP"
+{% endif %}
+
+{% if task_args.truststore_password is defined %}
+echo "ssl.truststore.password={{ task_args.truststore_password }}" >> "$PROTOCOL_TMP"
+{% endif %}
+
+KAFKA_STDERR="$(mktemp)"
+
+{% for topic in task_args.topics %}
+kafka-topics \
+--bootstrap-server "{{ bootstrap_url }}" \
+--topic "{{ topic.name }}" \
+--create \
+--command-config "$PROTOCOL_TMP" \
+{% for config in topic.configs | default({}) | dict2items %}
+--config "{{ config.key }}={{ config.value }}" \
+{% endfor %}
+--replication-factor {{ topic.replication_factor | default(1) }} \
+--partitions {{ topic.partitions | default(1) }} 2> "$KAFKA_STDERR"
+KAFKA_RET="$?"
+cat "$KAFKA_STDERR" 1>&2
+if [ "$KAFKA_RET" -ne 0 ]
+then
+  if grep "already exists" "$KAFKA_STDERR"
+  then
+    echo "skipping as topic already exists"
+  else
+    exit "$KAFKA_RET"
+  fi
+fi
+{% endfor %}

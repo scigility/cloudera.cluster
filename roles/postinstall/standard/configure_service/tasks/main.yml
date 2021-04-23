@@ -1,0 +1,68 @@
+---
+
+- fail:
+    msg: |
+      Requires...
+      task_args.cluster_name
+      task_args.service
+      task_args.configs
+      task_args.should_restart
+      task_args.should_deploy_client_configs
+  
+      Optional...
+      task_args.role
+      task_args.description
+  when: >
+    (task_args.cluster_name is not defined
+     and postinstall_default_cluster is not defined)
+    or task_args.service is not defined
+    or task_args.configs is not defined
+    or task_args.should_restart is not defined
+    or task_args.should_deploy_client_configs is not defined
+
+- debug:
+    msg: "{{ task_args.description }}"
+  when: task_args.description is defined
+  run_once: true
+
+- set_fact:
+    _cluster_name: "{{ task_args.cluster_name | default(postinstall_default_cluster) }}"
+
+- set_fact:
+    _config_url: "/clusters/{{ _cluster_name | urlencode() }}/services/{{ task_args.service }}/config"
+  when: task_args.role is not defined
+
+- set_fact:
+    _config_url: "/clusters/{{ _cluster_name | urlencode() }}/services/{{ task_args.service }}/roles/{{ task_args.role }}/config"
+  when: task_args.role is defined
+
+- name: Configure {{ _cluster_name }} {{ task_args.service }} service
+  cm_api:
+    endpoint: "{{ _config_url }}"
+    method: PUT
+    body:
+      items: "{{ task_args.configs | dict2items(key_name='name', value_name='value') }}"
+  run_once: true
+
+- name: Restart stale services on {{ _cluster_name }}
+  cm_api:
+    endpoint: "/clusters/{{ _cluster_name | urlencode() }}/commands/restart"
+    method: POST
+    body:
+      restartOnlyStaleServices: true
+      redeployClientConfiguration: "{{ task_args.should_deploy_client_configs }}"
+  when: task_args.should_restart
+  run_once: true
+  register: restart_comm
+  failed_when: restart_comm.status | default(0) != 200
+
+- name: Deploy the client configs for {{ _cluster_name }}
+  cm_api:
+    endpoint: "/clusters/{{ _cluster_name | urlencode() }}/commands/deployClientConfig"
+    method: POST
+  when:
+    - not task_args.should_restart
+    - task_args.should_deploy_client_configs
+  run_once: true
+  register: deploy_comm
+  failed_when: deploy_comm.status | default(0) != 200

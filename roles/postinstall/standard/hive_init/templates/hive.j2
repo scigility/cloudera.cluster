@@ -1,0 +1,31 @@
+set -x
+
+JDBC_URL="jdbc:hive2://{{ hs2 }}/default"
+
+{% if task_args.kerberos %}
+JDBC_URL="$JDBC_URL;principal=hive/_HOST@{{ krb5_realm }}"
+{% endif %}
+
+{% if task_args.tls %}
+JDBC_URL="$JDBC_URL;ssl=true"
+{% endif %}
+
+{% if task_args.truststore is defined %}
+JDBC_URL="$JDBC_URL;sslTrustStore={{ task_args.truststore }}"
+{% endif %}
+
+{% if task_args.truststore_password is defined %}
+JDBC_URL="$JDBC_URL;trustStorePassword={{ task_args.truststore_password }}"
+{% endif %}
+
+HIVE_TMP="$(mktemp)"
+
+{% for ddl in task_args.ddl %}
+cat <<EOF > "$HIVE_TMP"
+{{ ddl }}
+EOF
+
+beeline -u "$JDBC_URL" -f "$HIVE_TMP"
+{% endfor %}
+
+rm "$HIVE_TMP"

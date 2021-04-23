@@ -1,0 +1,5 @@
+---
+dependencies:
+  - role: postinstall/common
+  - role: deployment/definition
+  - role: cloudera_manager/api_client

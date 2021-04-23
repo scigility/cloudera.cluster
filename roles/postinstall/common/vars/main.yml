@@ -1,0 +1,27 @@
+---
+
+combined_postinstall_credentials: >
+  {{
+    default_postinstall_credentials
+     | combine(default_postinstall_keyadmin_credentials)
+     | combine(postinstall_credentials | default({}))
+     | combine(postinstall_keyadmin_credentials | default({}))
+     | dict2items(key_name='name', value_name='meta')
+     | list
+  }}
+
+combined_postinstall_policies: >
+  {{
+    default_postinstall_policies
+     | combine(postinstall_policies | default({}))
+     | dict2items(key_name='name', value_name='meta')
+     | list
+  }}
+
+combined_postinstall_keyadmin_policies: >
+  {{
+    default_postinstall_keyadmin_policies
+     | combine(postinstall_keyadmin_policies | default({}))
+     | dict2items(key_name='name', value_name='meta')
+     | list
+  }}

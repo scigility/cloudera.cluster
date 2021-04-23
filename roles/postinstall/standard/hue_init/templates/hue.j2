@@ -1,0 +1,13 @@
+set -x
+
+export HUE_CONF_DIR="/var/run/cloudera-scm-agent/process/`ls -altr /var/run/cloudera-scm-agent/process/ | grep HUE_SERVER | tail -1 | awk '{ print $9 }'`"
+
+for line in `strings /proc/$(lsof -s tcp:LISTEN -i tcp:{{ task_args.hue_server_port | default(8888) }}|egrep -m1 '(hue|python)' | awk '{ print $2 }')/environ|egrep -v "^HOME=|^TERM=|^PWD=|^CLDR_JAVA_OPTS=|^-Dsun.security.krb5.disableReferrals="`; do export $line; done
+
+{% if database_type == 'oracle' %}
+export LD_LIBRARY_PATH=/usr/share/oracle/instantclient/lib
+{% endif %}
+
+/opt/cloudera/parcels/CDH/lib/hue/build/env/bin/hue shell << EOF
+{{ lookup('template', 'init.py.j2') }}
+EOF

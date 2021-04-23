@@ -1,0 +1,76 @@
+from __future__ import print_function
+import sys
+from django.contrib.auth.models import Group
+from useradmin.models import get_profile, get_default_user_group, HuePermission, GroupPermission
+from desktop.auth.backend import find_or_create_user, rewrite_user, ensure_has_a_group
+
+def add_ldap_group(groupname_pattern, import_by_dn=False, import_members=False, import_members_recursive=False, is_ensuring_home_directories=False):
+    from useradmin import ldap_access
+    from useradmin.views import import_ldap_groups
+    connection = ldap_access.get_connection_from_server()
+    groups = import_ldap_groups(connection, groupname_pattern, import_members=import_members, import_members_recursive=import_members_recursive, sync_users=True, import_by_dn=import_by_dn, failed_users=[])
+    return groups[0]
+
+
+def add_ldap_user(username_pattern, sync_groups=False, import_by_dn=False):
+    from useradmin import ldap_access
+    from useradmin.views import import_ldap_users
+    connection = ldap_access.get_connection_from_server()
+    users = import_ldap_users(connection, username_pattern, sync_groups=sync_groups, import_by_dn=import_by_dn, failed_users=[])
+    return users[0]
+
+rc=0
+
+print('creating local users')
+
+{% for user in task_args.local_users | default([]) %}
+print('creating local user {{ user.name }}')
+
+user = find_or_create_user(username='{{ user.name }}', password='{{ user.password }}', is_superuser={{ user.is_superuser | default('False') }})
+user = rewrite_user(user)
+user.is_staff = True
+ensure_has_a_group(user)
+user.save()
+userprofile = get_profile(user)
+userprofile.first_login = False
+userprofile.save()
+{% endfor %}
+
+print('importing ldap users')
+
+{% for ldapuser in task_args.ldap_users | default([]) %}
+print('importing ldap user {{ ldapuser.name }}')
+
+try:
+    user = add_ldap_user('{{ ldapuser.name }}', sync_groups={{ ldapuser.sync_groups | default('True') }})
+    user.is_superuser = {{ ldapuser.is_superuser | default('False') }}
+    user.save()
+except Exception as e:
+    print('unable to import ldap user {{ ldapuser.name }}: ' + str(e))
+    rc=1
+{% endfor %}
+
+print('importing ldap groups')
+
+{% for group in task_args.ldap_groups | default([]) %}
+print('importing ldap group {{ group.name }}')
+
+try:
+    # If a group already exists, delete it before importing it again to removing any existing permissions
+    if len(Group.objects.filter(name='{{ group.name }}')) == 1:
+        Group.objects.get(name='{{ group.name }}').delete()
+    group = add_ldap_group('{{ group.name }}', import_members={{ group.import_members | default('True') }})
+{% for permission in group.permissions | default([]) %}
+    try:
+        perm = HuePermission.objects.get(app="{{ permission.app }}", action="{{ permission.action }}")
+        GroupPermission.objects.get_or_create(group=group, hue_permission=perm)
+    except Exception as e:
+        print('unable to grant permission for {{ permission.app }}.{{ permission.action }}: ' + str(e))
+        rc=1
+{% endfor %}
+except Exception as e:
+    print('unable to import ldap group {{ group.name }}:' + str(e))
+    rc=1
+{% endfor %}
+
+exit(rc)

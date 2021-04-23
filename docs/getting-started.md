@@ -171,6 +171,10 @@ These are for optional functionality that can be layered onto an existing deploy
 
 ### Extra playbooks available
 
+- [postinstall.yml](playbooks/postinstall.md)
+
+  This playbook allows you to run a variety of post-install tasks.
+
 - [`teardown.yml`](playbooks/teardown.md)
 
   This playbook attempts to clean-up the hosts, that already have clusters installed (or partially installed), to allow to user to install a new environment.

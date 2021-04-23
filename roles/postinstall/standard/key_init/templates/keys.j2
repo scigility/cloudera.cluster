@@ -1,0 +1,30 @@
+EXISTING_TMP="$(mktemp)"
+trap "rm '$EXISTING_TMP'" EXIT
+hadoop key list > "$EXISTING_TMP"
+
+{% for key in task_args.enc_keys %}
+if cat "$EXISTING_TMP" | egrep '^{{ key.name }}$'
+then
+  echo "{{ key.name }} already exists"
+else
+  COMM="hadoop key create {{ key.name }}"
+
+  {% if 'cipher' in key %}
+    COMM="$COMM -cipher {{ key.cipher }}"
+  {% endif %}
+
+  {% if 'size' in key %}
+    COMM="$COMM -size {{ key.size }}"
+  {% endif %}
+
+  {% if 'description' in key %}
+    COMM="$COMM -description {{ key.description }}"
+  {% endif %}
+
+  {% for attr in key.attributes | default({}) | dict2items %}
+    COMM="$COMM -attr {{ attr.key }}={{ attr.value }}"
+  {% endfor %}
+
+  $COMM
+fi
+{% endfor %}

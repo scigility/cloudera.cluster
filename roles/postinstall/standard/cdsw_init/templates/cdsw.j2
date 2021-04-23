@@ -1,0 +1,35 @@
+{% set auth_provider = auth_providers[task_args.auth_provider | default(service_auth_provider)] %}
+kubectl exec -it $(kubectl get pods -l role=db -o jsonpath='{.items[*].metadata.name}') -- psql -U sense -c " \
+UPDATE site_config \
+SET \
+auth_type = 'ldap', \
+ldap_server_uri = '{{ auth_provider.ldap_url }}', \
+ldap_bind_dn = '{{ auth_provider.ldap_bind_user_dn }}', \
+ldap_bind_credentials = '{{ auth_provider.ldap_bind_password }}', \
+ldap_search_base = '{{ auth_provider.ldap_search_base.user }}', \
+ldap_user_filter = null, \
+ldap_user_username_attr = '{{ auth_provider.ldap_attribute.user }}', \
+ldap_user_search_attr = null, \
+ldap_use_direct_bind = 'f', \
+{% if task_args.smtp_host is defined %}
+smtp_host = '{{ task_args.smtp_host }}', \
+{% endif %}
+{% if task_args.smtp_port is defined %}
+smtp_port = '{{ task_args.smtp_port }}', \
+{% endif %}
+smtp_password = '', \
+smtp_tls = 'f', \
+{% if task_args.smtp_from is defined %}
+no_reply_email =  '{{ task_args.smtp_from }}', \
+{% endif %}
+ldap_username_pattern = null, \
+ldap_user_groups = null, \
+ldap_group_search_base = '{{ auth_provider.ldap_search_base.group }}', \
+ldap_group_search_filter = '{{ auth_provider.ldap_attribute.member }}={0}', \
+ldap_full_admin_groups = '[\"{{ task_args.cdsw_admin_group }}\"]', \
+enable_analytics = 'f';
+"
+
+kubectl exec -it $(kubectl get pods -l role=db -o jsonpath='{.items[*].metadata.name}') -- psql -U sense -c " \
+UPDATE site_config \
+SET ca_cert = '$(cat {{ tls_chain_path }})'"

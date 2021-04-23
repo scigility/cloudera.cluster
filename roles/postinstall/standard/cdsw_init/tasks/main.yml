@@ -1,0 +1,51 @@
+---
+
+- fail:
+    msg: |
+      Requires...
+      task_args.delegate_host or task_args.cluser_name
+      task_args.cdsw_admin_group
+      task_args.auth_provider (when service_auth_provider not defined)
+
+      Optional...
+      task_args.smtp_host
+      task_args.smtp_port
+      task_args.smtp_from
+  when: >
+    (task_args.delegate_host is not defined
+     and task_args.cluster_name is not defined
+     and postinstall_default_cluster is not defined)
+    or (task_args.auth_provider is not defined and service_auth_provider is not defined)
+    or task_args.cdsw_admin_group is not defined
+
+- set_fact:
+    host: >-
+      {{
+      definition.clusters
+      | find_clusters(name=task_args.cluster_name | default(postinstall_default_cluster))
+      | first
+      | cluster_service_role_hosts(hostvars, 'CDSW', ['CDSW_MASTER'])
+      | first
+      }}
+  when: task_args.cluster_name is defined or postinstall_default_cluster is defined
+
+- set_fact:
+    host: "{{ task_args.delegate_host }}"
+  when: task_args.delegate_host is defined
+
+- set_fact:
+    local_user: "{{ task_args.local_user | default('root') }}"
+
+- name: Initialize CDSW configs
+  shell:
+    cmd: "{{ lookup('template', 'cdsw.j2') }}"
+  delegate_to: "{{ host }}"
+  run_once: true
+  become: true
+  become_user: "{{ local_user }}"
+  register: cdsw_comm
+
+- debug:
+    var: cdsw_comm
+  delegate_to: "{{ host }}"
+  run_once: true

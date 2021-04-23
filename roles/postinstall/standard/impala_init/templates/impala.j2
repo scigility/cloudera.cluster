@@ -1,0 +1,27 @@
+set -x
+
+IMPALA_SHELL="impala-shell -i {{ daemon }} -d default"
+
+{% if task_args.kerberos %}
+IMPALA_SHELL="$IMPALA_SHELL -k"
+{% endif %}
+
+{% if task_args.tls %}
+IMPALA_SHELL="$IMPALA_SHELL --ssl"
+{% endif %}
+
+{% if task_args.truststore is defined %}
+IMPALA_SHELL="$IMPALA_SHELL --ca_cert {{ task_args.truststore }}"
+{% endif %}
+
+IMPALA_TMP="$(mktemp)"
+
+{% for ddl in task_args.ddl %}
+cat <<EOF > "$IMPALA_TMP"
+{{ ddl }}
+EOF
+
+$IMPALA_SHELL -f "$IMPALA_TMP"
+{% endfor %}
+
+rm "$IMPALA_TMP"

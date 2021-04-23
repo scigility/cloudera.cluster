@@ -1,0 +1,28 @@
+name: "{{ policy.name }}"
+service: "{{ policy.plugin }}"
+resources: {{ policy.resources | to_json }}
+policyItems:
+{% for user in policy.users | default({}) | dict2items(key_name='name', value_name='authz') %}
+- users: ["{{ user.name }}"]
+  groups: []
+  roles: []
+  conditions: {{ user.authz.conditions | default([]) | to_json }}
+  delegateAdmin: {{ user.authz.delegateAdmin | default(false) }}
+  accesses:
+{% for access in user.authz.accesses %}
+  - type: "{{ access }}"
+    isAllowed: true
+{% endfor %}
+{% endfor %}
+{% for group in policy.groups | default({}) | dict2items(key_name='name', value_name='authz') %}
+- users: []
+  groups: ["{{ group.name }}"]
+  roles: []
+  conditions: {{ group.authz.conditions | default([]) | to_json }}
+  delegateAdmin: {{ group.authz.delegateAdmin | default(false) }}
+  accesses:
+{% for access in group.authz.accesses %}
+  - type: "{{ access }}"
+    isAllowed: true
+{% endfor %}
+{% endfor %}

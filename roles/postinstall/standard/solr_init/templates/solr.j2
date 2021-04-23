@@ -1,0 +1,17 @@
+set -x
+
+{% for config in task_args.configs | default([]) %}
+  if ! solrctl instancedir --list | egrep '^{{ config.name }}$'
+  then
+    solrctl config --create {{ config.name }} {{ config.base }} {% if config.p is defined %} -p {{ config.p }} {% endif %} || exit $?
+
+  fi
+{% endfor %}
+
+{% for collection in task_args.collections | default([]) %}
+  if ! solrctl collection --list | egrep '^{{ collection.name }} \([0-9]+\)$'
+  then
+    solrctl collection --create {{ collection.name }} -s {{ collection.shards }} -c {{ collection.config }} -r {{ collection.replication_factor }} {{ collection.opts | default('') }} || exit $?
+
+  fi
+{% endfor %}

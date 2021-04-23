@@ -1,0 +1,22 @@
+set -x
+
+HDFS_STDERR="$(mktemp)"
+
+{% for folder in task_args.folders %}
+hdfs dfs -chown "{{ folder.owner | default('') }}{% if folder.group is defined %}:{{ folder.group }}{% endif %}" "{{ folder.path }}"
+
+{% if 'key' in folder %}
+hdfs crypto -createZone -keyName "{{ folder.key }}" -path "{{ folder.path }}" 2> "$HDFS_STDERR"
+HDFS_CRYPTO_RET="$?"
+cat "$HDFS_STDERR" 1>&2
+if [ "$HDFS_CRYPTO_RET" -ne 0 ]
+then
+  if grep "already an encryption zone" "$HDFS_STDERR"
+  then
+    echo "skipping as encryption zone already exists"
+  else
+    exit "$HDFS_CRYPTO_RET"
+  fi
+fi
+{% endif %}
+{% endfor %}

@@ -1,0 +1,57 @@
+---
+
+- fail:
+    msg: |
+      Requires...
+      task_args.hue_server_host or task_args.cluster_name
+      task_args.database_password
+
+      Optional...
+      task_args.hue_server_port
+      task_args.ldap_password
+      task_args.key_password
+      task_args.local_users (name, password, is_superuser)
+      task_args.ldap_users (name, sync_groups, is_superuser)
+      task_args.ldap_groups (name, import_members, permissions [app, action])
+  when: >
+    (task_args.hue_server_host is not defined
+     and task_args.cluster_name is not defined
+     and postinstall_default_cluster is not defined)
+    or task_args.database_password is not defined
+
+- set_fact:
+    local_user: "{{ task_args.local_user | default(postinstall_local_root_user) }}"
+
+- set_fact:
+    host: >-
+      {{
+      definition.clusters
+      | find_clusters(name=task_args.cluster_name | default(postinstall_default_cluster))
+      | first
+      | cluster_service_role_hosts(hostvars, 'HUE', ['HUE_SERVER'])
+      | first
+      }}
+  when: task_args.cluster_name is defined or postinstall_default_cluster is defined
+
+- set_fact:
+    host: "{{ task_args.hue_server_host }}"
+  when: task_args.hue_server_host is defined
+
+- name: Initialize Hue
+  shell:
+    cmd: "{{ lookup('template', 'hue.j2') }}"
+  delegate_to: "{{ host }}"
+  run_once: true
+  become: true
+  become_user: "{{ local_user }}"
+  environment:
+    HUE_DATABASE_PASSWORD: "{{ task_args.database_password }}"
+    HUE_LDAP_BIND_PASSWORD: "{{ task_args.ldap_password | default(omit) }}"
+    HUE_SSL_PASSWORD: "{{ task_args.key_password | default(tls_key_password) }}"
+    HUE_IGNORE_PASSWORD_SCRIPT_ERRORS: 1
+  register: hue_comm
+
+- debug:
+    var: hue_comm
+  delegate_to: "{{ host }}"
+  run_once: true

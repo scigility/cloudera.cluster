@@ -1,0 +1,63 @@
+---
+
+- fail:
+    msg: |
+      Requires...
+      task_args.delegate_host or task_args.cluster_name
+      task_args.ddl
+
+      Optional...
+      task_args.run_as
+  when: >
+    (task_args.delegate_host is not defined
+     and task_args.cluster_name is not defined
+     and postinstall_default_cluster is not defined)
+    or task_args.ddl is not defined
+
+- set_fact:
+    host: >-
+      {{
+      definition.clusters
+      | find_clusters(name=task_args.cluster_name | default(postinstall_default_cluster))
+      | first
+      | cluster_service_role_hosts(hostvars, 'HBASE', ['GATEWAY', 'REGIONSERVER'])
+      | first
+      }}
+  when: task_args.cluster_name is defined or postinstall_default_cluster is defined
+
+- set_fact:
+    host: "{{ task_args.delegate_host }}"
+  when: task_args.delegate_host is defined
+
+- set_fact:
+    local_user: "{{ task_args.local_user | default(postinstall_local_user) }}"
+
+- set_fact:
+    identity: "{{ postinstall_user_prefix ~ task_args.run_as }}"
+  when: task_args.run_as is defined
+
+- set_fact:
+    identity: "hbase"
+  when: task_args.run_as is not defined
+
+- name: Initialize HBase
+  auth_shell:
+    cmd: "{{ lookup('template', 'hbase.j2') }}"
+    cm_host: "{{ cloudera_manager_host }}"
+    cm_port: "{{ cloudera_manager_port }}"
+    cm_user: "admin"
+    cm_pass: "{{ cloudera_manager_api_password }}"
+    fallback: "hbase"
+    identity: "{{ identity }}"
+    host: "{{ host }}"
+    set_hadoop_env_on_failure: true
+  delegate_to: "{{ host }}"
+  run_once: true
+  become: true
+  become_user: "{{ local_user }}"
+  register: hbase_comm
+
+- debug:
+    var: hbase_comm
+  delegate_to: "{{ host }}"
+  run_once: true

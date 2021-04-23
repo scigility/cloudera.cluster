@@ -1,0 +1,5 @@
+set -x
+
+hbase shell << EOF
+{{ task_args.ddl | join('\n') }}
+EOF

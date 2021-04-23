@@ -1,0 +1,16 @@
+set -x
+
+{% for folder in task_args.folders %}
+if ! hdfs dfs -ls "{{ folder.path }}"
+then
+hdfs dfs -mkdir -p "{{ folder.path }}"
+{% if folder.mode is defined %}
+hdfs dfs -chmod "{{ folder.mode }}" "{{ folder.path }}"
+{% endif %}
+{% if folder.acls is defined %}
+{% for acl in folder.acls %}
+hdfs dfs -setfacl -m "{{ acl }}" "{{ folder.path }}"
+{% endfor %}
+{% endif %}
+fi
+{% endfor %}

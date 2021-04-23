@@ -1,0 +1,168 @@
+---
+
+postinstall_local_user: provision_user 
+
+postinstall_local_root_user: root
+
+postinstall_user_prefix: provisioning_
+
+postinstall_policy_suffix: " – postinstall"
+
+default_postinstall_credentials:
+  hbase_admin:
+    ranger:
+      - ranger_policy: hbase_all
+        accesses: ["create", "read", "write", "admin"]
+  hdfs_admin:
+    ranger:
+      - ranger_policy: hdfs_all
+        accesses: ["read", "write", "execute"]
+  hive_admin:
+    ranger:
+      - ranger_policy: hive_url_all
+        accesses:
+          - "select"
+          - "update"
+          - "create"
+          - "drop"
+          - "alter"
+          - "index"
+          - "lock"
+          - "all"
+          - "read"
+          - "write"
+          - "repladmin"
+          - "serviceadmin"
+          - "tempudfadmin"
+          - "refresh"
+      - ranger_policy: hive_udf_all
+        accesses:
+          - "select"
+          - "update"
+          - "create"
+          - "drop"
+          - "alter"
+          - "index"
+          - "lock"
+          - "all"
+          - "read"
+          - "write"
+          - "repladmin"
+          - "serviceadmin"
+          - "tempudfadmin"
+          - "refresh"
+      - ranger_policy: hive_db_all
+        accesses:
+          - "select"
+          - "update"
+          - "create"
+          - "drop"
+          - "alter"
+          - "index"
+          - "lock"
+          - "all"
+          - "read"
+          - "write"
+          - "repladmin"
+          - "serviceadmin"
+          - "tempudfadmin"
+          - "refresh"
+  solr_admin:
+    ranger:
+      - ranger_policy: solr_all
+        accesses: ["query", "update", "others", "solr_admin"]
+  kafka_admin:
+    ranger:
+      - ranger_policy: kafka_all
+        accesses: ["publish", "consume", "configure", "describe", "create", "delete", "describe_configs", "alter_configs", "alter"]
+
+default_postinstall_policies:
+  hbase_all:
+    type: hbase
+    plugin: cm_hbase
+    resources:
+      column-family:
+        values:
+          - "*"
+      column:
+        values:
+          - "*"
+      table:
+        values:
+          - "*"
+  hdfs_all:
+    type: hdfs
+    plugin: cm_hdfs
+    resources:
+      path:
+        values:
+          - "/*"
+        isRecursive: true
+  hive_url_all:
+    type: hive
+    plugin: cm_hive
+    resources:
+      url:
+        values:
+          - "*"
+  hive_udf_all:
+    type: hive
+    plugin: cm_hive
+    resources:
+      database:
+        values:
+          - "*"
+      udf:
+        values:
+          - "*"
+  hive_db_all:
+    type: hive
+    plugin: cm_hive
+    resources:
+      database:
+        values:
+          - "*"
+      column:
+        values:
+          - "*"
+      table:
+        values:
+          - "*"
+  solr_all:
+    type: solr
+    plugin: cm_solr
+    resources:
+      collection:
+        values:
+          - "*"
+  kafka_all:
+    type: kafka
+    plugin: cm_kafka
+    resources:
+      topic:
+        values:
+          - "*"
+
+default_postinstall_keyadmin_credentials:
+  key_admin:
+    ranger:
+      - ranger_policy: kms_all
+        accesses:
+          - "create"
+          - "delete"
+          - "rollover"
+          - "setkeymaterial"
+          - "get"
+          - "getkeys"
+          - "getmetadata"
+          - "generateeek"
+          - "decrypteek"
+
+default_postinstall_keyadmin_policies:
+  kms_all:
+    type: kms
+    plugin: cm_kms
+    resources:
+      keyname:
+        values:
+          - "*"
