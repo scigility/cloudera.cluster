@@ -24,4 +24,5 @@
 - name: Extract the host identifiers and names into facts
   set_fact:
     cloudera_manager_api_hosts: "{{ lookup('template', 'host_list.j2') }}"
-  when: cloudera_manager_api_hosts is not defined
+  #when: cloudera_manager_api_hosts is not defined
+  when: cloudera_manager_api_hosts is not defined  or cloudera_manager_api_hosts|length == 0
