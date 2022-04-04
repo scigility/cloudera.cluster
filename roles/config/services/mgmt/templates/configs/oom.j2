@@ -1,0 +1,20 @@
+{%- set oom_heap_dump_dir = definition.mgmt.oom.heap_dump_dir | default('/tmp') -%}
+---
+ACTIVITYMONITOR:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+ALERTPUBLISHER:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+EVENTSERVER:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+HOSTMONITOR:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+NAVIGATOR:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+NAVIGATORMETASERVER:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+REPORTSMANAGER:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+SERVICEMONITOR:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"
+TELEMETRYPUBLISHER:
+  oom_heap_dump_dir: "{{ oom_heap_dump_dir }}"

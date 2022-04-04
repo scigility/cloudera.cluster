@@ -198,12 +198,15 @@
          definition
          | json_query('clusters[?services] | [?contains(services, `SENTRY`)].name')
          }}
-    - name: Ensure that Kerberos is enabled alongside Ranger and Sentry
+    - name: Ensure that Kerberos is enabled alongside Ranger and Sentry (warning)
       assert:
         that: "{{ ranger_clusters | union(sentry_clusters) | difference(kerberos_clusters) | length == 0 }}"
         success_msg: "Kerberos is enabled on each cluster with Ranger or Sentry"
         fail_msg: "Kerberos should be enabled on each cluster with Ranger or Sentry"
       when: ranger_clusters | length > 0 or sentry_clusters | length > 0
+      # ignore failing assert to allow Ranger in a cluster config on non-kerberized cluster
+      ignore_errors: yes
+
     - name: Ensure that Ranger and Sentry are enabled alongside Kerberos (warning)
       assert:
         that: "{{ kerberos_clusters | difference(ranger_clusters | union(sentry_clusters)) | length == 0 }}"

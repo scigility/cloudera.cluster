@@ -48,6 +48,7 @@
       -storepass {{ tls_keystore_password }}
       -keypass {{ tls_keystore_password }}
     creates: "{{ tls_keystore_path }}"
+  when: tls_use_self_signed is undefined
 
 - name: Verify that JKS contains a private key
   shell:
@@ -58,6 +59,7 @@
       -alias {{ keystore_alias | default(inventory_hostname) }}
       -storepass {{ tls_keystore_password }} | grep PrivateKeyEntry
   changed_when: False
+  when: tls_use_self_signed is undefined
 
 - name: Export temporary PKCS12 keystore
   shell:
@@ -74,6 +76,8 @@
       -srcalias {{ keystore_alias | default(inventory_hostname) }}
       -destalias {{ keystore_alias | default(inventory_hostname) }}
     creates: "{{ base_dir_security_pki }}/{{ inventory_hostname }}.p12"
+  when: tls_use_self_signed is undefined
+
 
 - name: Export private key
   shell:
@@ -85,11 +89,13 @@
       -passout pass:{{ tls_key_password }}
       -nocerts
     creates: "{{ tls_key_path }}"
+  when: tls_use_self_signed is undefined
 
 - name: Delete temporary PKCS12 keystore
   file:
     path: "{{ base_dir_security_pki }}/{{ inventory_hostname }}.p12"
     state: absent
+  when: tls_use_self_signed is undefined
 
 - name: Write key password to file
   shell:
@@ -124,6 +130,7 @@
     dest: "{{ tls_csr_config_path }}"
     owner: root
     mode: 0644
+  when: tls_use_self_signed is undefined
 
 - name: Generate CSR
   shell:
@@ -136,9 +143,11 @@
       -new
       -out {{ tls_csr_path }}
     creates: "{{ tls_csr_path }}"
+  when: tls_use_self_signed is undefined
 
 - name: Bring CSRs back to controller
   fetch:
     src: "{{ tls_csr_path }}"
     dest: "{{ local_csrs_dir }}/"
     flat: yes
+  when: tls_use_self_signed is undefined

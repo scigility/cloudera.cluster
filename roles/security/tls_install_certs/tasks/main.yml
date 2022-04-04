@@ -52,6 +52,14 @@
     dest: "{{ base_dir_security_pki }}/"
     mode: 0644
   when: not signed_cert_remote.stat.exists
+  register: copied_host
+
+- name: Copy signed key to hosts
+  copy:
+    src: "{{ tls_signed_certs_dir }}/{{ inventory_hostname }}.key"
+    dest: "{{ base_dir_security_pki }}/"
+    mode: 0440
+  when: tls_use_self_signed is defined
 
 - name: Copy CA certs to hosts
   copy:
@@ -61,12 +69,12 @@
   loop: "{{ tls_ca_certs }}"
   loop_control:
     loop_var: cacert
-  register: copied
+  register: copied_ca
 
 - name: Generate certificate chain file
   shell:
     cmd: >
-      cat {{ copied.results | json_query('[*].dest') | join(' ') }} > {{ tls_chain_path }}
+      cat {{ base_dir_security_pki }}/{{ inventory_hostname }}.pem {{ copied_ca.results | json_query('[*].dest') | join(' ') }} > {{ tls_chain_path }}
     creates: "{{ tls_chain_path }}"
 
 - name: Validate certificate
@@ -81,6 +89,39 @@
     mode: 0644
     owner: root
     group: root
+# todo: add creates statement, use variable for p12 keystore
+
+- name: Create temporary PKCS12 keystore
+  shell:
+    cmd: >
+      {{ openssl_path }}
+      pkcs12
+      -export 
+      -in "{{ tls_chain_path }}"
+      -inkey "{{ base_dir_security_pki }}/{{ inventory_hostname }}.key"
+      -name {{ inventory_hostname }}
+      -passin pass:{{ tls_keystore_password }}
+      -passout pass:{{ tls_keystore_password }}
+      > {{ inventory_hostname }}.p12
+  when: tls_use_self_signed is defined
+
+- name: Import PKCS12 keystore into Java Keystore
+  shell:
+    cmd: >
+      {{ keytool_path }}
+      -importkeystore 
+      -srckeystore {{ inventory_hostname }}.p12
+      -destkeystore {{ tls_keystore_path }}
+      -srcstoretype pkcs12 
+      -deststoretype jks 
+      -alias {{ keystore_alias | default(inventory_hostname) }}
+      -srcstorepass {{ tls_keystore_password }}
+      -deststorepass {{ tls_keystore_password }}
+      -keypass {{ tls_keystore_password }}
+    creates: "{{ tls_keystore_path }}"
+  when: tls_use_self_signed is defined
+
+## todo: remove p12 keystore here
 
 - name: Install CA certificates into keystore
   java_cert:
@@ -94,6 +135,7 @@
   loop: "{{ tls_ca_certs }}"
   loop_control:
     loop_var: cacert
+  when: tls_use_self_signed is undefined
 
 - name: Install signed certificate reply into keystore
   shell:
@@ -112,6 +154,8 @@
   failed_when:
     - "'Certificate reply was installed in keystore' not in keytool_output.stderr"
     - "'Certificate reply and certificate in keystore are identical' not in keytool_output.stdout"
+  when: tls_use_self_signed is undefined
+
 
 - name: Install CA certificates into truststore
   java_cert:
@@ -126,6 +170,7 @@
   loop: "{{ tls_ca_certs }}"
   loop_control:
     loop_var: cacert
+  when: tls_use_self_signed is undefined
 
 - name: Update truststore permissions
   file:
@@ -133,6 +178,7 @@
     owner: root
     group: root
     mode: "0644"
+  when: tls_use_self_signed is undefined
 
 - name: Update chain certificate permissions
   file:
@@ -140,6 +186,7 @@
     owner: root
     group: root
     mode: "0644"
+  when: tls_use_self_signed is undefined
 
 - name: Update OS trust stores
   block:
@@ -153,7 +200,9 @@
       loop_var: cacert
   - shell:
       cmd: update-ca-trust extract
-  when: ansible_os_family == "RedHat"
+  when: 
+    - ansible_os_family == "RedHat"
+    - tls_use_self_signed is undefined
 
 - name: Find system cacerts file
   find:

@@ -17,6 +17,8 @@ custom_config_templates:
   - template: configs/defaults.j2
   - template: configs/databases.j2
   - template: configs/logdirs.j2
+  - template: configs/oom.j2
+    condition: "{{ definition.mgmt.oom is defined }}"
   - template: configs/tls.j2
     condition: "{{ definition.mgmt.security.tls | default(False) }}"
   - template: configs/tls-6.x.j2

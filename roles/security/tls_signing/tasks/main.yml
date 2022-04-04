@@ -16,10 +16,13 @@
 
 - name: Sign CSRs with locally installed CA
   include_tasks: csr_signing_local.yml
-  when: "'ca_server' in groups"
+  when: 
+    - "'ca_server' in groups"  
+    - tls_use_self_signed is undefined
 
 - name: Sign certificates using FreeIPA
   include_tasks: signing_freeipa.yml
   when:
     - krb5_kdc_type == 'Red Hat IPA'
     - not (skip_ipa_signing | default(false))
+    - tls_use_self_signed is undefined

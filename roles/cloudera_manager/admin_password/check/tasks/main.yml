@@ -24,6 +24,8 @@
 
 # https://github.com/ansible/ansible/issues/34989
 - name: Check the default Cloudera Manager admin password
+# DSS-296: If possible do CM HTTP requests from the CM host itself, not the Tower host (localhost)
+  delegate_to: "{{ groups.cloudera_manager[0] if 'cloudera_manager' in groups else 'localhost' }}"
   uri:
     url: "{{ cloudera_manager_protocol }}://{{ cloudera_manager_host }}:{{ cloudera_manager_port }}/api/v2/tools/echo"
     validate_certs: "{{ cloudera_manager_tls_validate_certs }}"
@@ -32,6 +34,7 @@
     force_basic_auth: yes
     status_code: [200, 401]
   register: default_admin_password_check
+  # 3 retries is enough, because 1 retry can take 1min (in case of timeout)
   retries: 30
   until:
     - default_admin_password_check.status is defined

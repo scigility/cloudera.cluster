@@ -16,14 +16,13 @@
 
 - name: Setup the Oracle JDBC Driver
   block:
-
+    # DSS-280: use "get_url" as workaround because of missing "maven" pip module dependency
     - name: Download Oracle Connector
-      maven_artifact:
-        group_id: "{{ oracle_connector_group_id }}"
-        artifact_id: "{{ oracle_connector_artifact_id }}"
-        version: "{{ oracle_connector_version }}"
+      get_url:
+        #url: https://esartifactory/artifactory/maven-central/com/oracle/database/jdbc/ojdbc10/19.8.0.0/ojdbc10-19.8.0.0.jar
+        url: "{{ maven_repo }}/com/oracle/database/jdbc/{{ oracle_connector_artifact_id }}/{{ oracle_connector_version }}/{{ oracle_connector_artifact_id }}-{{ oracle_connector_version }}.jar"
         dest: "{{ local_temp_dir }}/{{ oracle_connector_artifact_id }}-connector-java-{{ oracle_connector_version }}.jar"
-        repository_url: "{{ oracle_connector_maven_url }}"
+        mode: '0644'
       become: no
       run_once: true
       connection: local
